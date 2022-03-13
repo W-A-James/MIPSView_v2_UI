@@ -11,6 +11,11 @@ import("./svg_render.js")
 import("./sample_programs.js")
     .catch(e => console.error("Error importing sample_programs.js: ", e));
 
+import("./index.html")
+    .catch(e => console.error("Error importing `html`:", e));
+
+import("./index.css")
+    .catch(e => console.error("Error importing `css`:", e));
+
 import("./index.js")
     .catch(e => console.error("Error importing `index.js`:", e));
-

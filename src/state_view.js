@@ -12,12 +12,10 @@ import * as mips_sim from "mips_sim";
  * source code being executed
  * */
 
-let REGVALS = document.getElementById("regvals");
+/* cSpell:ignore REG, MEM, VALS, REGVALS, REGTABLE, MEMVALS, regs */
+/* cSpell:enableCompoundWords */
 let REGTABLE = document.getElementById("regtable");
 let MEMTABLE = document.getElementById("memtable");
-
-let MEMVALS = document.getElementById("memvals");
-
 
 function renderMemView(simState) {
     let tbody = MEMTABLE.children[0];

@@ -1,5 +1,5 @@
 const path = require('path');
-const DIST_DIR = path.resolve(__dirname, "dist");
+const DIST_DIR = path.resolve(__dirname, "../site");
 const SRC_DIR = path.resolve(__dirname, "src");
 
 module.exports = {
@@ -16,6 +16,14 @@ module.exports = {
                     "style-loader",
                     "css-loader"
                 ]
+            },
+            {
+                test: /\.html$/i,
+                loader: "file-loader",
+                options: {
+                    publicPath: DIST_DIR,
+                    name: '[name].[ext]'
+                }
             },
             {
                 test: /\.(png|jpeg|jpg|gif)$/i,

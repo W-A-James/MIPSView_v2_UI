@@ -1,0 +1,42 @@
+<html>
+
+<head></head>
+
+<body>
+    <div id="main">
+        <div id="model_container">
+            <div id="controls">
+                <button id="single_step_button">Single Step</button>
+                <input type="number" id="num_steps" min="1" max="100">
+                <button id="step_button">Step</button>
+                <button id="step_to_halt_button">Step To Halt</button>
+            </div>
+            <div id="model"></div>
+        </div>
+        <div id="state_container">
+            <button id="regview-button">Registers/Memory</button>
+            <div id="regvals">
+                <table id="regtable">
+                    <tbody>
+                        <tr>
+                            <th>Register</th>
+                            <th>Value (decimal)</th>
+                            <th>Value (hex)</th>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="memvals" class="invisible">
+                <table id="memtable">
+                    <tbody>
+                        <tr>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="main.js"></script>
+</body>
+
+</html>

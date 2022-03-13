@@ -2,7 +2,6 @@ import * as mips_sim from "mips_sim";
 import * as Simulator from "./svg_render";
 import * as State from "./state_view";
 import * as sample_programs from "./sample_programs";
-import "./index.css";
 
 let simulator_diag;
 let program_loaded = false;
