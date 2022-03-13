@@ -27,7 +27,7 @@ div#model_container {
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: stretch;
-    background-color: "#bbb";
+    background-color: #ddd;
 }
 
 div#state_container {
@@ -36,7 +36,7 @@ div#state_container {
     align-items: stretch;
     display: flex;
     flex-direction: column;
-    background-color: blue;
+    overflow-y: scroll;
 }
 
 div#controls {
@@ -45,7 +45,7 @@ div#controls {
     flex-direction: row;
     justify-content: flex-end;
     background-color: purple;
-    flex-basis: 10%;
+    flex-basis: 5%;
 }
 
 div#controls button label input{
@@ -53,11 +53,26 @@ div#controls button label input{
 }
 
 div#model {
-    background-color: "#afafaf";
-    flex-basis: 90%;
+    background-color: #ffffff;
+    flex-basis: 95%;
 }
 
+table#regtable, table#regtable th, table#regtable td {
+    border: 1px solid black;
+    border-collapse: collapse;
+}
+
+table#memtable, table#memtable th, table#memtable td {
+    border: 1px solid black;
+    border-collapse: collapse;
+}
 
 div#regvals {}
 
 div#memvals {}
+
+.invisible {
+    display: none;
+}
+
+

@@ -9,33 +9,77 @@ let CONTROL_FILL = "#FFF";
 let DATA_PATH_OUTLINE = "#000";
 let DATA_PATH_FILL = "#FFF";
 
+const ROOT3OVER2 = Math.sqrt(3) / 2;
+let shapeCount = 0;
+let connCount = 0;
 
+function vec_scale(v, s) {
+    return {
+        x: v.x * s,
+        y: v.y * s
+    };
+}
+
+function vec_perpendicular(v) {
+    return {
+        x: v.y,
+        y: -v.x
+    };
+}
+
+function vec_len(v) {
+    return Math.sqrt(v.x * v.x + v.y * v.y)
+}
 
 class Connector {
-    constructor(owner, path, weight, onclick) {
+    constructor(owner, path, weight = PATH_WIDTH, onclick = undefined, markers = {start: false, end: true}) {
         this.owner = owner;
         this.path = path;
         this.line_weight = weight;
         this.colour = "#000";
-        this.onclick = onclick;
+        this.onclick = onclick ? onclick : () => {};
+        if (markers) {
+            this.markerStart = markers.start ? markers.start : false;
+            this.markerEnd = markers.end ? markers.end: false;
+        }
+        this.count = connCount;
+        connCount++;
     }
 
-    static horizontal(owner, startX, endX, y, weight, onclick) {
-        let rv = new Connector(owner, [startX, y, endX, y], weight, onclick);
-        console.log(rv);
+    static horizontal(owner, startX, endX, y, weight, onclick, markers = {start: false, end: true}) {
+        let rv = new Connector(owner, [startX, y, endX, y], weight, onclick, markers);
         return rv;
     }
 
-    static vertical(owner, startY, endY, x, weight, onclick) {
-        return new Connector(owner, [x, startY, x, endY], weight, onclick);
+    static vertical(owner, startY, endY, x, weight, onclick, markers = {start: false, end: true}) {
+        return new Connector(owner, [x, startY, x, endY], weight, onclick, markers);
     }
 
+    get_end_marker_path(absolute_path, len) {
+        let last_points = absolute_path.slice(-4);
+
+        let ps = {x: last_points[0], y: last_points[1]};
+        let p1 = {x: last_points[2], y: last_points[3]};
+        let U = {x: p1.x - ps.x, y: p1.y - ps.y};
+        let u = vec_scale(U, 1.0 / vec_len(U));
+        let v = vec_perpendicular(u);
+        let p0 = {
+            x: p1.x + (v.x * len / 2) - (u.x * ROOT3OVER2 * len),
+            y: p1.y + (v.y * len / 2) - (u.y * ROOT3OVER2 * len)
+        };
+
+        let p2 = {
+            x: p1.x - (v.x * len / 2) - (u.x * ROOT3OVER2 * len),
+            y: p1.y - (v.y * len / 2) - (u.y * ROOT3OVER2 * len)
+        };
+
+        return [p1.x, p1.y, p2.x, p2.y, p0.x, p0.y];
+    }
     draw() {
         let frame = document.getElementById(this.owner.target_element.substr(1));
         let drawing_width = frame.clientWidth;
         let drawing_height = frame.clientHeight;
 
-        console.log("drawing connector");
         let i = 0;
         let new_path = this.path.map(e => {
             let rv;
@@ -49,9 +93,7 @@ class Connector {
             return rv;
         });
 
-        // TODO: Add Markers
-        // TODO: Add Labels
-        this.owner.drawing.polyline(new_path)
+        let l = this.owner.drawing.polyline(new_path)
             .stroke(
                 {
                     width: this.line_weight,
@@ -59,7 +101,20 @@ class Connector {
                 }
             )
             .fill('none')
+            .attr({"id": `conn_${this.count}`})
             .on("click", this.onclick === undefined ? () => {} : this.onclick);
+
+        if (this.markerEnd) {
+            let p = this.get_end_marker_path(new_path, 8);
+            this.owner.drawing.polygon(p);
+        }
+
+        if (this.markerStart) {
+            l.marker("start", 8, 8, add => {
+                add.circle(8)
+            });
+        }
+        // TODO: Add Labels
     }
 }
 
@@ -68,8 +123,11 @@ const SHAPE = {
     BOX: "BOX",
     ARITH: "ARITH"
 };
+
+const LAMBDA = 0.3;
+const PHI = 0.333333;
 class Component {
-    constructor(owner, spec, name, connectors, onclick, shape) {
+    constructor(owner, spec, name, connectors, onclick=undefined, shape=SHAPE.BOX, classList="") {
         this.owner = owner;
         this.x = spec.x;
         this.y = spec.y;
@@ -78,10 +136,13 @@ class Component {
         this.name = name;
         this.fill = "#FFF";
         this.outline = "#000";
-        this.rect = null;
+        this.obj = null;
         this.shape = shape;
         this.connectors = connectors;
         this.onclick = onclick;
+        this.classList = classList;
+        this.count = shapeCount;
+        shapeCount++;
     }
 
     convertRelativeToPixels(relativeX, relativeY) {
@@ -104,8 +165,8 @@ class Component {
     }
 
     get_arith_pts(x, y, w, h, lambda, phi) {
-        let l= lambda * w;
-        let p= phi * h;
+        let l = lambda * w;
+        let p = phi * h;
 
         return [
             x, y,
@@ -124,8 +185,8 @@ class Component {
         // TODO: Check Shape here
         switch (this.shape) {
             case SHAPE.ARITH:
-                let pts = this.get_arith_pts(loc.x, loc.y, size.x, size.y, 0.3, 0.25);
-                this.rect = this.owner.drawing.polygon(pts)
+                let pts = this.get_arith_pts(loc.x, loc.y, size.x, size.y, LAMBDA, PHI);
+                this.obj = this.owner.drawing.polygon(pts)
                     .attr(
                         {
                             'fill-opacity': 0.0,
@@ -137,7 +198,7 @@ class Component {
                     .on('click', this.onclick === undefined ? () => {} : this.onclick);
                 break;
             case SHAPE.CIRCLE:
-                this.rect = this.owner.drawing.ellipse(size.x, size.y)
+                this.obj = this.owner.drawing.ellipse(size.x, size.y)
                     .attr({
                         'fill-opacity': 0.0,
                         'stroke-opacity': 1.0
@@ -149,7 +210,7 @@ class Component {
                     .on('click', this.onclick === undefined ? () => {} : this.onclick);
                 break;
             default:
-                this.rect = this.owner.drawing.rect(size.x, size.y)
+                this.obj = this.owner.drawing.rect(size.x, size.y)
                     .attr({
                         'fill-opacity': 0.0,
                         'stroke-opacity': 1.0
@@ -160,6 +221,9 @@ class Component {
                     .stroke(this.outline)
                     .on('click', this.onclick === undefined ? () => {} : this.onclick);
         }
+
+        this.obj = this.obj.attr({"id": `shape_${this.count}`});
+        this.classList.split(" ").forEach(c => this.obj.addClass(c));
         // Calculate center and draw text at center
         let center = {
             x: loc.x + size.x / 2,
@@ -170,9 +234,12 @@ class Component {
         this.text = this.owner.drawing
             .text(this.name)
             .x(center.x)
-            .y(center.y)
-            .width(size.x)
-            .height(size.y);
+            .font("anchor", "middle");
+        
+        let bbox = this.text.node.getBoundingClientRect();
+        let h = (this.text.node.getBoundingClientRect().height);
+        this.text = this.text
+            .y(center.y - h/2);
 
         this.connectors.forEach(c => c.draw());
     }
@@ -185,7 +252,7 @@ function makeBox(x, y, w, h) {
 const REG_WIDTH = 0.03;
 const REG_HEIGHT = 0.70;
 const REG_Y_POS = 0.12;
-const PATH_WIDTH = 2;
+const PATH_WIDTH = 1;
 
 const PC_COORDS = makeBox(0.07, 0.3, 0.02, 0.12);
 
@@ -202,15 +269,15 @@ const ID_EX_REG_MEM_COORDS = makeBox(0.475, REG_Y_POS + 0.05, REG_WIDTH, 0.05);
 const ID_EX_REG_EX_COORDS = makeBox(0.475, REG_Y_POS + 0.1, REG_WIDTH, 0.05);
 
 const REG_FILE_COORDS = makeBox(0.31, 0.4, REG_WIDTH * 3, REG_WIDTH * 5);
-const SIGN_EXT_COORDS = makeBox(0.31, 0.6, REG_WIDTH * 1.5, REG_WIDTH * 3);
+const SIGN_EXT_COORDS = makeBox(0.31, 0.6, REG_WIDTH, REG_WIDTH * 3);
 
 const LEFT_SHIFT_2_COORDS = makeBox(0.31, 0.3, REG_WIDTH, REG_WIDTH * 2.5);
 const BRANCH_TARGET_ADDER_COORDS = makeBox(0.35, 0.22, 0.03, 0.075);
-const CMP_COORDS = makeBox(0.40, 0.32, REG_WIDTH, REG_WIDTH);
+const CMP_COORDS = makeBox(0.40, 0.3, REG_WIDTH, 0.05);
 const DECODE_CONTROL_COORDS = makeBox(0.35, 0.12, REG_WIDTH, REG_WIDTH * 3);
 
 const ALU_COORDS = makeBox(0.59, 0.4, 0.05, 0.16);
-const ALU_CONTROL_COORDS = makeBox(0.5875, 0.575, 0.03, 0.08);
+const ALU_CONTROL_COORDS = makeBox(0.5875, 0.62, 0.03, 0.08);
 const REG_DEST_MUX_COORDS = makeBox(0.54, 0.69, 0.03, 0.1);
 const ALU_OP_2_MUX_COORDS = makeBox(0.53, 0.5, 0.03, 0.07);
 
@@ -218,9 +285,10 @@ const EX_MEM_REG_COORDS = makeBox(0.7, REG_Y_POS, REG_WIDTH, REG_HEIGHT);
 const EX_MEM_REG_WB_COORDS = makeBox(0.7, REG_Y_POS, REG_WIDTH, 0.05);
 const EX_MEM_REG_MEM_COORDS = makeBox(0.7, REG_Y_POS + 0.05, REG_WIDTH, 0.05);
 
-const D_MEM_COORDS = makeBox(0.76, 0.5, 0.1, 0.12);
-const MEM_WB_REG_COORDS = makeBox(0.9, REG_Y_POS, REG_WIDTH, REG_HEIGHT);
-const WB_MUX_COORDS = makeBox(0.94, 0.5, 0.03, 0.1);
+const D_MEM_COORDS = makeBox(0.76, 0.45, 0.1, 0.15);
+const MEM_WB_REG_COORDS = makeBox(0.88, REG_Y_POS, REG_WIDTH, REG_HEIGHT);
+const MEM_WB_REG_WB_COORDS = makeBox(0.88, REG_Y_POS, REG_WIDTH, 0.05);
+const WB_MUX_COORDS = makeBox(0.94, 0.45, 0.03, 0.1);
 
 class Simulator {
     constructor(target_element) {
@@ -242,10 +310,10 @@ class Simulator {
                             PC_COORDS.x + PC_COORDS.w + 0.005, PC_COORDS.y + PC_COORDS.h / 2,
                             PC_COORDS.x + PC_COORDS.w + 0.005, PC_ADDER_COORDS.y,
                             PC_ADDER_COORDS.x, PC_ADDER_COORDS.y
-                        ], PATH_WIDTH
+                        ], PATH_WIDTH, _ => {}, {end: true}
                     )
                 ]
-                , undefined),
+                , console.log, SHAPE.BOX, "reg"),
             is_branch_and: new Component(this, BRANCH_AND_COORDS, "AND", [
                 new Connector(this, [
                     BRANCH_AND_COORDS.x, BRANCH_AND_COORDS.cy,
@@ -260,7 +328,7 @@ class Simulator {
                     ]
                 )
             ], undefined),
-            i_mem: new Component(this, I_MEM_COORDS, "Instruction Memory", [
+            i_mem: new Component(this, I_MEM_COORDS, "Instruction\nMemory", [
                 new Connector(this, [
                     I_MEM_COORDS.x + I_MEM_COORDS.w, I_MEM_COORDS.y + I_MEM_COORDS.h / 2,
                     IF_ID_REG_COORDS.x, I_MEM_COORDS.y + I_MEM_COORDS.h / 2
@@ -337,13 +405,13 @@ class Simulator {
                 /* Reg data 1*/
                 Connector.horizontal(this, REG_FILE_COORDS.rx, ID_EX_REG_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h / 5, 1, undefined),
                 /* To cmp 1 */
-                Connector.vertical(this, REG_FILE_COORDS.y + REG_FILE_COORDS.h / 5, CMP_COORDS.by, CMP_COORDS.x + CMP_COORDS.w / 3),
+                Connector.vertical(this, REG_FILE_COORDS.y + REG_FILE_COORDS.h / 5, CMP_COORDS.by, CMP_COORDS.x + CMP_COORDS.w / 3, PATH_WIDTH, undefined, {start: true, end: true}),
                 /* Reg data 2*/
                 Connector.horizontal(this, REG_FILE_COORDS.rx, ID_EX_REG_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5),
                 /* To cmp 2 */
-                Connector.vertical(this, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5, CMP_COORDS.by, CMP_COORDS.x + CMP_COORDS.w * 2 / 3),
+                Connector.vertical(this, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5, CMP_COORDS.by, CMP_COORDS.x + CMP_COORDS.w * 2 / 3, PATH_WIDTH, undefined, {start: true, end: true}),
             ], undefined),
-            sign_extend: new Component(this, SIGN_EXT_COORDS, "Sign Extend", [
+            sign_extend: new Component(this, SIGN_EXT_COORDS, "Sign\nExtend", [
                 Connector.horizontal(this, SIGN_EXT_COORDS.rx, ID_EX_REG_COORDS.x, SIGN_EXT_COORDS.cy),
                 new Connector(this, [
                     (CMP_COORDS.rx + ID_EX_REG_COORDS.x) / 2, SIGN_EXT_COORDS.cy,
@@ -375,9 +443,7 @@ class Simulator {
             cmp: new Component(this, CMP_COORDS, "Cmp", [
                 new Connector(this, [
                     CMP_COORDS.cx, CMP_COORDS.y,
-                    CMP_COORDS.cx, BRANCH_TARGET_ADDER_COORDS.by,
-                    (CMP_COORDS.cx + BRANCH_TARGET_ADDER_COORDS.rx) / 2, BRANCH_TARGET_ADDER_COORDS.by,
-                    (CMP_COORDS.cx + BRANCH_TARGET_ADDER_COORDS.rx) / 2, BRANCH_AND_COORDS.y + BRANCH_AND_COORDS.h * 2 / 3,
+                    CMP_COORDS.cx, BRANCH_AND_COORDS.y + BRANCH_AND_COORDS.h * 2 / 3,
                     BRANCH_AND_COORDS.rx, BRANCH_AND_COORDS.y + BRANCH_AND_COORDS.h * 2 / 3
                 ])
             ]),
@@ -388,17 +454,42 @@ class Simulator {
                     BRANCH_AND_COORDS.rx, BRANCH_AND_COORDS.y + BRANCH_AND_COORDS.h / 3,
 
                 ]),
-                Connector.horizontal(this, DECODE_CONTROL_COORDS.rx, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5)), DECODE_CONTROL_COORDS.cy),
-                Connector.vertical(this, ID_EX_REG_WB_COORDS.cy, ID_EX_REG_EX_COORDS.cy, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5))),
-                Connector.horizontal(this, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5)), ID_EX_REG_WB_COORDS.x, ID_EX_REG_WB_COORDS.cy),
-                Connector.horizontal(this, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5)), ID_EX_REG_MEM_COORDS.x, ID_EX_REG_MEM_COORDS.cy),
-                Connector.horizontal(this, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5)), ID_EX_REG_EX_COORDS.x, ID_EX_REG_EX_COORDS.cy)
+                Connector.horizontal(this, DECODE_CONTROL_COORDS.rx, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5)), DECODE_CONTROL_COORDS.cy, PATH_WIDTH, undefined, {start: false, end: false}),
+                Connector.vertical(this, ID_EX_REG_WB_COORDS.cy, ID_EX_REG_EX_COORDS.cy, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5)), PATH_WIDTH, undefined, {start: false, end: false}),
+                Connector.horizontal(this, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5)), ID_EX_REG_WB_COORDS.x, ID_EX_REG_WB_COORDS.cy, PATH_WIDTH, undefined, {start: false, end: true}),
+                Connector.horizontal(this, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5)), ID_EX_REG_MEM_COORDS.x, ID_EX_REG_MEM_COORDS.cy, PATH_WIDTH, undefined, {start: true, end: true}),
+                Connector.horizontal(this, (DECODE_CONTROL_COORDS.rx + (ID_EX_REG_COORDS.x - DECODE_CONTROL_COORDS.rx) * (4 / 5)), ID_EX_REG_EX_COORDS.x, ID_EX_REG_EX_COORDS.cy, PATH_WIDTH, undefined, {start: false, end: true})
             ], undefined, SHAPE.CIRCLE),
 
             id_ex_reg: new Component(this, ID_EX_REG_COORDS, "ID/EX", [
                 Connector.horizontal(this, ID_EX_REG_COORDS.rx, REG_DEST_MUX_COORDS.x, SIGN_EXT_COORDS.by + SIGN_EXT_COORDS.h / 3),
-                Connector.horizontal(this, ID_EX_REG_COORDS.rx, REG_DEST_MUX_COORDS.x, SIGN_EXT_COORDS.by + SIGN_EXT_COORDS.h * 2 / 3)
-            ], undefined),
+                Connector.horizontal(this, ID_EX_REG_COORDS.rx, REG_DEST_MUX_COORDS.x, SIGN_EXT_COORDS.by + SIGN_EXT_COORDS.h * 2 / 3),
+                Connector.horizontal(this, ID_EX_REG_COORDS.rx, ALU_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h / 5),
+                new Connector(this, [
+                    ID_EX_REG_COORDS.rx, SIGN_EXT_COORDS.cy,
+                    (ID_EX_REG_COORDS.rx + ALU_CONTROL_COORDS.x) / 2, SIGN_EXT_COORDS.cy,
+                    (ID_EX_REG_COORDS.rx + ALU_CONTROL_COORDS.x) / 2, ALU_CONTROL_COORDS.cy,
+                    ALU_CONTROL_COORDS.x, ALU_CONTROL_COORDS.cy,
+                ]),
+                new Connector(this, [
+                    (ID_EX_REG_COORDS.rx + (ALU_OP_2_MUX_COORDS.x - ID_EX_REG_COORDS.rx) / 3), SIGN_EXT_COORDS.cy,
+                    (ID_EX_REG_COORDS.rx + (ALU_OP_2_MUX_COORDS.x - ID_EX_REG_COORDS.rx) / 3), ALU_OP_2_MUX_COORDS.y + ALU_OP_2_MUX_COORDS.h * 2 / 3,
+                    ALU_OP_2_MUX_COORDS.x, ALU_OP_2_MUX_COORDS.y + ALU_OP_2_MUX_COORDS.h * 2 / 3,
+                ], PATH_WIDTH, undefined, {start: true, end: true}),
+                new Connector(this, [
+                    ID_EX_REG_COORDS.rx, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5,
+                    ID_EX_REG_COORDS.rx + (ALU_OP_2_MUX_COORDS.x - ID_EX_REG_COORDS.rx) / 3, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5,
+                    ID_EX_REG_COORDS.rx + (ALU_OP_2_MUX_COORDS.x - ID_EX_REG_COORDS.rx) / 3, ALU_OP_2_MUX_COORDS.y + ALU_OP_2_MUX_COORDS.h / 3,
+                    ALU_OP_2_MUX_COORDS.x, ALU_OP_2_MUX_COORDS.y + ALU_OP_2_MUX_COORDS.h / 3,
+                ]),
+                new Connector(this, [
+                    ID_EX_REG_COORDS.rx + (ALU_OP_2_MUX_COORDS.x - ID_EX_REG_COORDS.rx) * 2 / 3, ALU_OP_2_MUX_COORDS.y + ALU_OP_2_MUX_COORDS.h / 3,
+                    ID_EX_REG_COORDS.rx + (ALU_OP_2_MUX_COORDS.x - ID_EX_REG_COORDS.rx) * 2 / 3, D_MEM_COORDS.by - D_MEM_COORDS.h / 7,
+                    EX_MEM_REG_COORDS.x, D_MEM_COORDS.by - D_MEM_COORDS.h / 7,
+                ], PATH_WIDTH, undefined, {start: true, end: true})
+            ], (e) => {
+                console.log(this.state.id_ex_reg.current_map);
+            }),
 
             id_ex_reg_wb: new Component(this, ID_EX_REG_WB_COORDS, "", [
                 Connector.horizontal(this, ID_EX_REG_WB_COORDS.rx, EX_MEM_REG_COORDS.x, ID_EX_REG_WB_COORDS.cy)
@@ -431,28 +522,107 @@ class Simulator {
             ], undefined),
 
             // Execute
-            alu: new Component(this, ALU_COORDS, "ALU", [], undefined, SHAPE.ARITH),
-            alu_control: new Component(this, ALU_CONTROL_COORDS, "ALU Control", [], undefined, SHAPE.CIRCLE),
+            alu: new Component(this, ALU_COORDS, "ALU", [
+                Connector.horizontal(this, ALU_COORDS.rx, EX_MEM_REG_COORDS.x, ALU_COORDS.cy)
+            ], undefined, SHAPE.ARITH),
+            alu_control: new Component(this, ALU_CONTROL_COORDS, "ALU\nControl", [
+                new Connector(this, [
+                    ALU_CONTROL_COORDS.rx, ALU_CONTROL_COORDS.cy,
+                    (ALU_CONTROL_COORDS.rx + ALU_COORDS.rx) / 2, ALU_CONTROL_COORDS.cy,
+                    (ALU_CONTROL_COORDS.rx + ALU_COORDS.rx) / 2, ALU_COORDS.by * 0.92,
+                ])
+            ], undefined, SHAPE.CIRCLE),
             reg_dest_mux: new Component(this, REG_DEST_MUX_COORDS, "Mux", [
                 Connector.horizontal(this, REG_DEST_MUX_COORDS.rx, EX_MEM_REG_COORDS.x, REG_DEST_MUX_COORDS.cy)
             ], undefined),
-            alu_op_2_mux: new Component(this, ALU_OP_2_MUX_COORDS, "Mux", [], undefined),
+            alu_op_2_mux: new Component(this, ALU_OP_2_MUX_COORDS, "Mux", [
+                Connector.horizontal(this, ALU_OP_2_MUX_COORDS.rx, ALU_COORDS.x, ALU_OP_2_MUX_COORDS.cy)
+            ], undefined),
 
-            ex_mem_reg: new Component(this, EX_MEM_REG_COORDS, "EX/MEM", [], undefined),
-            ex_mem_reg_wb: new Component(this, EX_MEM_REG_WB_COORDS, "", [], undefined),
-            ex_mem_reg_mem: new Component(this, EX_MEM_REG_MEM_COORDS, "", [], undefined),
+            ex_mem_reg: new Component(this, EX_MEM_REG_COORDS, "EX/MEM", [
+                Connector.horizontal(this, EX_MEM_REG_COORDS.rx, D_MEM_COORDS.x, ALU_COORDS.cy, PATH_WIDTH, undefined, {start: false, end: true}),
+                new Connector(this, [
+                    (EX_MEM_REG_COORDS.rx + D_MEM_COORDS.x) / 2, ALU_COORDS.cy,
+                    (EX_MEM_REG_COORDS.rx + D_MEM_COORDS.x) / 2, D_MEM_COORDS.by + D_MEM_COORDS.h / 4,
+                    MEM_WB_REG_COORDS.x, D_MEM_COORDS.by + D_MEM_COORDS.h / 4,
+                ], PATH_WIDTH, undefined, {start: true, end: true}),
+                Connector.horizontal(this, EX_MEM_REG_COORDS.rx, MEM_WB_REG_COORDS.x, REG_DEST_MUX_COORDS.cy, PATH_WIDTH),
+                Connector.horizontal(this, EX_MEM_REG_COORDS.rx, D_MEM_COORDS.x, D_MEM_COORDS.by - D_MEM_COORDS.h / 7)
+            ], undefined),
+            ex_mem_reg_wb: new Component(this, EX_MEM_REG_WB_COORDS, "", [
+                Connector.horizontal(this, EX_MEM_REG_WB_COORDS.rx, MEM_WB_REG_WB_COORDS.x, EX_MEM_REG_WB_COORDS.cy, PATH_WIDTH, undefined, {start: false, end: true})
+            ], undefined),
+            ex_mem_reg_mem: new Component(this, EX_MEM_REG_MEM_COORDS, "", [
+                new Connector(this, [
+                    EX_MEM_REG_MEM_COORDS.rx, EX_MEM_REG_MEM_COORDS.y + EX_MEM_REG_MEM_COORDS.h / 3,
+                    D_MEM_COORDS.cx, EX_MEM_REG_MEM_COORDS.y + EX_MEM_REG_MEM_COORDS.h / 3,
+                    D_MEM_COORDS.cx, D_MEM_COORDS.y
+                ]),
+                new Connector(this, [
+                    EX_MEM_REG_MEM_COORDS.rx, EX_MEM_REG_MEM_COORDS.y + EX_MEM_REG_MEM_COORDS.h * 2 / 3,
+                    EX_MEM_REG_MEM_COORDS.rx + (D_MEM_COORDS.x - EX_MEM_REG_MEM_COORDS.rx) / 4, EX_MEM_REG_MEM_COORDS.y + EX_MEM_REG_MEM_COORDS.h * 2 / 3,
+                    EX_MEM_REG_MEM_COORDS.rx + (D_MEM_COORDS.x - EX_MEM_REG_MEM_COORDS.rx) / 4, D_MEM_COORDS.by + D_MEM_COORDS.h * 1 / 3,
+                    D_MEM_COORDS.cx, D_MEM_COORDS.by + D_MEM_COORDS.h * 1 / 3,
+                    D_MEM_COORDS.cx, D_MEM_COORDS.by,
+                ]),
+
+            ], undefined),
             // Memory
-            d_mem: new Component(this, D_MEM_COORDS, "Data Memory", [], undefined),
-            mem_wb_reg: new Component(this, MEM_WB_REG_COORDS, "MEM/WB", [], undefined),
+            d_mem: new Component(this, D_MEM_COORDS, "Data\nMemory", [
+                Connector.horizontal(this, D_MEM_COORDS.rx, MEM_WB_REG_COORDS.x, ALU_COORDS.cy, PATH_WIDTH, undefined, {start: false, end: true})
+            ], undefined),
+            mem_wb_reg: new Component(this, MEM_WB_REG_COORDS, "MEM/WB", [
+                Connector.horizontal(this, MEM_WB_REG_COORDS.rx, WB_MUX_COORDS.x, ALU_COORDS.cy, PATH_WIDTH, undefined, {start: false, end: true}),
+                new Connector(this, [
+                    MEM_WB_REG_COORDS.rx, D_MEM_COORDS.by + D_MEM_COORDS.h / 4,
+                    (MEM_WB_REG_COORDS.rx + WB_MUX_COORDS.x) / 2, D_MEM_COORDS.by + D_MEM_COORDS.h / 4,
+                    (MEM_WB_REG_COORDS.rx + WB_MUX_COORDS.x) / 2, WB_MUX_COORDS.y + WB_MUX_COORDS.h * 2 / 3,
+                    WB_MUX_COORDS.x, WB_MUX_COORDS.y + WB_MUX_COORDS.h * 2 / 3,
+                ], PATH_WIDTH, undefined, {start: false, end: true}),
+                new Connector(this, [
+                    MEM_WB_REG_COORDS.rx, REG_DEST_MUX_COORDS.cy,
+                    (MEM_WB_REG_COORDS.rx + WB_MUX_COORDS.x) / 2, REG_DEST_MUX_COORDS.cy,
+                    (MEM_WB_REG_COORDS.rx + WB_MUX_COORDS.x) / 2, MEM_WB_REG_COORDS.by + MEM_WB_REG_COORDS.h / 12,
+                    (IF_ID_REG_COORDS.rx + (REG_FILE_COORDS.x - IF_ID_REG_COORDS.rx) * 3 / 4), MEM_WB_REG_COORDS.by + MEM_WB_REG_COORDS.h / 12,
+                    (IF_ID_REG_COORDS.rx + (REG_FILE_COORDS.x - IF_ID_REG_COORDS.rx) * 3 / 4), REG_FILE_COORDS.y + REG_FILE_COORDS.h * 3 / 5,
+                    REG_FILE_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 3 / 5
+
+
+                ], PATH_WIDTH, undefined, {start: false, end: true})
+            ], undefined),
+            mem_wb_reg_wb: new Component(this, MEM_WB_REG_WB_COORDS, "", [
+                new Connector(this, [
+                    MEM_WB_REG_WB_COORDS.rx, MEM_WB_REG_WB_COORDS.y + MEM_WB_REG_WB_COORDS.h * 2 / 3,
+                    WB_MUX_COORDS.cx, MEM_WB_REG_WB_COORDS.y + MEM_WB_REG_WB_COORDS.h * 2 / 3,
+                    WB_MUX_COORDS.cx, WB_MUX_COORDS.y
+                ], PATH_WIDTH, undefined, {start: false, end: true}),
+                new Connector(this, [
+                    MEM_WB_REG_WB_COORDS.rx, MEM_WB_REG_WB_COORDS.y + MEM_WB_REG_WB_COORDS.h / 3,
+                    WB_MUX_COORDS.rx + (1.0 - WB_MUX_COORDS.rx) * 2 / 3, MEM_WB_REG_WB_COORDS.y + MEM_WB_REG_WB_COORDS.h / 3,
+                    WB_MUX_COORDS.rx + (1.0 - WB_MUX_COORDS.rx) * 2 / 3, MEM_WB_REG_COORDS.by + (1.0 - MEM_WB_REG_COORDS.by) * 2 / 3,
+                    REG_FILE_COORDS.cx, MEM_WB_REG_COORDS.by + (1.0 - MEM_WB_REG_COORDS.by) * 2 / 3,
+                    REG_FILE_COORDS.cx, REG_FILE_COORDS.by
+
+                ])
+            ], undefined),
             // Writeback
-            wb_mux: new Component(this, WB_MUX_COORDS, "Mux", [], undefined),
+            wb_mux: new Component(this, WB_MUX_COORDS, "Mux", [
+                new Connector(this, [
+                    WB_MUX_COORDS.rx, WB_MUX_COORDS.cy,
+                    WB_MUX_COORDS.rx + (1.0 - WB_MUX_COORDS.rx) / 3, WB_MUX_COORDS.cy,
+                    WB_MUX_COORDS.rx + (1.0 - WB_MUX_COORDS.rx) / 3, MEM_WB_REG_COORDS.by + (MEM_WB_REG_COORDS.h / 8),
+                    IF_ID_REG_COORDS.rx + (REG_FILE_COORDS.x - IF_ID_REG_COORDS.rx) * 6 / 7, MEM_WB_REG_COORDS.by + (MEM_WB_REG_COORDS.h / 8),
+                    IF_ID_REG_COORDS.rx + (REG_FILE_COORDS.x - IF_ID_REG_COORDS.rx) * 6 / 7, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 4 / 5,
+                    REG_FILE_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 4 / 5,
+
+                ])
+            ], undefined),
 
         };
     }
 
     update(sim_state) {
-        this.state = sim_state;
-        console.log(JSON.stringify(sim_state));
+        if (sim_state) this.state = sim_state;
     }
 
     draw() {
