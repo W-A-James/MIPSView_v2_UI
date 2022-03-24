@@ -37,6 +37,21 @@ div#state_container {
     display: flex;
     flex-direction: column;
     overflow-y: scroll;
+
+    border-left: 2px solid black;
+}
+
+div#state_container button {
+    flex-basis: 5%;
+}
+
+div#program-counter {
+  display: flex;
+}
+
+div#program-counter > span {
+  width: 100%;
+  text-align: center;
 }
 
 div#controls {
@@ -48,8 +63,21 @@ div#controls {
     flex-basis: 5%;
 }
 
-div#controls button label input{
-    display: inline-block;
+button {
+    border-radius: 0;
+    border-style: none;
+    font-size: 1em;
+    font-weight: bold;
+    font-variant: normal;
+}
+
+
+div#controls > button,
+div#controls > label,
+div#controls > input {
+    flex-basis: 100%;
+    display: block !important;
+    border-radius: 0;
 }
 
 div#model {
@@ -57,14 +85,51 @@ div#model {
     flex-basis: 95%;
 }
 
-table#regtable, table#regtable th, table#regtable td {
+table#regtable, table#memtable {
+    width: 100%;
+}
+
+table#regtable tbody,
+table#memtable tbody {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+td.right-align {
+    text-align: right;
+}
+
+table#regtable tr,
+table#memtable tr {
+    display:flex;
+    flex-direction: row;
+    flex-basis: 100%;
+}
+
+table#memtable th,
+table#memtable td{
+    flex-basis: 33%;
+    font-family: monospace;
     border: 1px solid black;
     border-collapse: collapse;
 }
 
-table#memtable, table#memtable th, table#memtable td {
+table#regtable th,
+table#regtable td
+{
+    flex-basis: 25%;
+    flex-grow: 25%;
+    flex-shrink: 25%;
+    font-family: monospace;
     border: 1px solid black;
     border-collapse: collapse;
+}
+
+th.double-wide {
+  flex-basis: 50% !important;
+  flex-grow: 50% !important;
+  flex-shrink: 50% !important;
 }
 
 div#regvals {}
