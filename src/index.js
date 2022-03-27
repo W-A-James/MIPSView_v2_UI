@@ -1,11 +1,12 @@
 import * as mips_sim from "mips_sim";
-import * as Simulator from "./svg_render";
+import * as Simulator from "./sim_render";
 import * as State from "./state_view";
 import * as sample_programs from "./sample_programs";
 
 let simulator_diag;
 let program_loaded = false;
 let showRegView = true;
+let last_binary = null;
 let steps;
 
 function init_ui_event_handlers() {
@@ -69,8 +70,18 @@ function init_ui_event_handlers() {
 
 
 function load_binary(b) {
-  mips_sim.load_binary(b.text, b.data);
+  last_binary = b;
+  mips_sim.load_binary(b.text, b.data, b.entry);
   program_loaded = true;
+}
+
+function reinit() {
+  if (last_binary) {
+    mips_sim.init_sim();
+    mips_sim.load_binary(last_binary);
+  } else {
+    mips_sim.init_sim();
+  }
 }
 
 function start() {

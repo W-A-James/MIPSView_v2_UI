@@ -80,6 +80,10 @@ div#controls > input {
     border-radius: 0;
 }
 
+div#controls > input {
+  text-align: right;
+}
+
 div#model {
     background-color: #ffffff;
     flex-basis: 95%;
@@ -141,3 +145,21 @@ div#memvals {}
 }
 
 
+.component-label {
+  font-size: small;
+  font-family: monospace;
+}
+
+
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.control {
+  outline-color: red;
+}
+
+.tooltip .tooltiptext {
+
+}

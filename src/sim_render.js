@@ -1,252 +1,5 @@
 import * as s from "@svgdotjs/svg.js";
-
-// TODO: Pick colours for control and data path signals
-// TODO: Pick widths for datapath connections and control connections
-// TODO: Add different shapes to allow for eg: ovals, etc
-// todo
-let CONTROL_OUTLINE = "#f00";
-let CONTROL_FILL = "#FFF";
-
-let DATA_PATH_OUTLINE = "#000";
-let DATA_PATH_FILL = "#FFF";
-
-const ROOT3OVER2 = Math.sqrt(3) / 2;
-let shapeCount = 0;
-let connCount = 0;
-
-function vec_scale(v, s) {
-  return {
-    x: v.x * s,
-    y: v.y * s
-  };
-}
-
-function vec_perpendicular(v) {
-  return {
-    x: v.y,
-    y: -v.x
-  };
-}
-
-function vec_len(v) {
-  return Math.sqrt(v.x * v.x + v.y * v.y)
-}
-
-class Connector {
-  constructor(owner, path, weight = PATH_WIDTH, onclick = undefined, markers = { start: false, end: true }) {
-    this.owner = owner;
-    this.path = path;
-    this.line_weight = weight;
-    this.colour = "#000";
-    this.onclick = onclick ? onclick : () => { };
-    if (markers) {
-      this.markerStart = markers.start ? markers.start : false;
-      this.markerEnd = markers.end ? markers.end : false;
-    }
-    this.count = connCount;
-    connCount++;
-  }
-
-  static horizontal(owner, startX, endX, y, weight, onclick, markers = { start: false, end: true }) {
-    let rv = new Connector(owner, [startX, y, endX, y], weight, onclick, markers);
-    return rv;
-  }
-
-  static vertical(owner, startY, endY, x, weight, onclick, markers = { start: false, end: true }) {
-    return new Connector(owner, [x, startY, x, endY], weight, onclick, markers);
-  }
-
-  get_end_marker_path(absolute_path, len) {
-    let last_points = absolute_path.slice(-4);
-
-    let ps = { x: last_points[0], y: last_points[1] };
-    let p1 = { x: last_points[2], y: last_points[3] };
-    let U = { x: p1.x - ps.x, y: p1.y - ps.y };
-    let u = vec_scale(U, 1.0 / vec_len(U));
-    let v = vec_perpendicular(u);
-    let p0 = {
-      x: p1.x + (v.x * len / 2) - (u.x * ROOT3OVER2 * len),
-      y: p1.y + (v.y * len / 2) - (u.y * ROOT3OVER2 * len)
-    };
-
-    let p2 = {
-      x: p1.x - (v.x * len / 2) - (u.x * ROOT3OVER2 * len),
-      y: p1.y - (v.y * len / 2) - (u.y * ROOT3OVER2 * len)
-    };
-
-    return [p1.x, p1.y, p2.x, p2.y, p0.x, p0.y];
-  }
-
-  draw() {
-    let frame = document.getElementById(this.owner.target_element.substr(1));
-    let drawing_width = frame.clientWidth;
-    let drawing_height = frame.clientHeight;
-
-    let i = 0;
-    let new_path = this.path.map(e => {
-      let rv;
-      if (i % 2 === 0) {
-        rv = e * drawing_width;
-      }
-      else {
-        rv = e * drawing_height;
-      }
-      i += 1;
-      return rv;
-    });
-
-    let l = this.owner.drawing.polyline(new_path)
-      .stroke(
-        {
-          width: this.line_weight,
-          color: this.colour,
-        }
-      )
-      .fill('none')
-      .attr({ "id": `conn_${this.count}` })
-      .on("click", this.onclick === undefined ? () => { } : this.onclick);
-
-    if (this.markerEnd) {
-      let p = this.get_end_marker_path(new_path, 8);
-      this.owner.drawing.polygon(p);
-    }
-
-    if (this.markerStart) {
-      l.marker("start", 8, 8, add => {
-        add.circle(8)
-      });
-    }
-    // TODO: Add Labels
-  }
-}
-
-const SHAPE = {
-  CIRCLE: "CIRCLE",
-  BOX: "BOX",
-  ARITH: "ARITH"
-};
-
-const LAMBDA = 0.3;
-const PHI = 0.333333;
-// todo: Update constructor to include tooltip 
-class Component {
-  constructor(owner, spec, name, connectors, onclick = undefined, shape = SHAPE.BOX, classList = "") {
-    this.owner = owner;
-    this.x = spec.x;
-    this.y = spec.y;
-    this.width = spec.w;
-    this.height = spec.h;
-    this.name = name;
-    this.fill = "#FFF";
-    this.outline = "#000";
-    this.obj = null;
-    this.shape = shape;
-    this.connectors = connectors;
-    this.onclick = onclick;
-    this.classList = classList;
-    this.count = shapeCount;
-    shapeCount++;
-  }
-
-  convertRelativeToPixels(relativeX, relativeY) {
-    let frame = document.getElementById(this.owner.target_element.substr(1));
-    let drawing_width = frame.clientWidth;
-    let drawing_height = frame.clientHeight;
-
-    return {
-      x: relativeX > 1 ? relativeX : relativeX * drawing_width,
-      y: relativeY > 1 ? relativeY : relativeY * drawing_height
-    };
-  }
-
-  setFill(fill) {
-    this.fill = fill;
-  }
-
-  setOutline(outline) {
-    this.outline = outline;
-  }
-
-  get_arith_pts(x, y, w, h, lambda, phi) {
-    let l = lambda * w;
-    let p = phi * h;
-
-    return [
-      x, y,
-      x + w, y + ((h - p) / 2),
-      x + w, y + ((h - p) / 2) + p,
-      x, y + h,
-      x, y + h - ((h - p) / 2),
-      x + l, y + (h / 2),
-      x, y + ((h - p) / 2)
-    ];
-  }
-
-  draw() {
-    let loc = this.convertRelativeToPixels(this.x, this.y);
-    let size = this.convertRelativeToPixels(this.width, this.height);
-    // TODO: Check Shape here
-    switch (this.shape) {
-      case SHAPE.ARITH:
-        let pts = this.get_arith_pts(loc.x, loc.y, size.x, size.y, LAMBDA, PHI);
-        this.obj = this.owner.drawing.polygon(pts)
-          .attr(
-            {
-              'fill-opacity': 0.0,
-              'stroke-opacity': 1.0
-            }
-          )
-          .fill(this.fill)
-          .stroke(this.outline)
-          .on('click', this.onclick === undefined ? () => { } : this.onclick);
-        break;
-      case SHAPE.CIRCLE:
-        this.obj = this.owner.drawing.ellipse(size.x, size.y)
-          .attr({
-            'fill-opacity': 0.0,
-            'stroke-opacity': 1.0
-          })
-          .x(loc.x)
-          .y(loc.y)
-          .fill(this.fill)
-          .stroke(this.outline)
-          .on('click', this.onclick === undefined ? () => { } : this.onclick);
-        break;
-      default:
-        this.obj = this.owner.drawing.rect(size.x, size.y)
-          .attr({
-            'fill-opacity': 0.0,
-            'stroke-opacity': 1.0
-          })
-          .x(loc.x)
-          .y(loc.y)
-          .fill(this.fill)
-          .stroke(this.outline)
-          .on('click', this.onclick === undefined ? () => { } : this.onclick);
-    }
-
-    this.obj = this.obj.attr({ "id": `shape_${this.count}` });
-    this.classList.split(" ").forEach(c => this.obj.addClass(c));
-    // Calculate center and draw text at center
-    let center = {
-      x: loc.x + size.x / 2,
-      y: loc.y + size.y / 2
-    };
-    // draw text
-    // TODO: center label
-    this.text = this.owner.drawing
-      .text(this.name)
-      .x(center.x)
-      .font("anchor", "middle");
-
-    let bbox = this.text.node.getBoundingClientRect();
-    let h = (this.text.node.getBoundingClientRect().height);
-    this.text = this.text
-      .y(center.y - h / 2);
-
-    this.connectors.forEach(c => c.draw());
-  }
-}
+import { Component, Connector, SHAPE, PATH_WIDTH } from "./component";
 
 function makeBox(x, y, w, h) {
   return { x: x, y: y, w: w, h: h, rx: x + w, by: y + h, cx: x + w / 2, cy: y + h / 2 };
@@ -255,7 +8,6 @@ function makeBox(x, y, w, h) {
 const REG_WIDTH = 0.03;
 const REG_HEIGHT = 0.70;
 const REG_Y_POS = 0.12;
-const PATH_WIDTH = 1;
 
 const PC_COORDS = makeBox(0.07, 0.3, 0.02, 0.12);
 
@@ -311,8 +63,8 @@ class Simulator {
           new Connector(this,
             [
               PC_COORDS.x + PC_COORDS.w + 0.005, PC_COORDS.y + PC_COORDS.h / 2,
-              PC_COORDS.x + PC_COORDS.w + 0.005, PC_ADDER_COORDS.y,
-              PC_ADDER_COORDS.x, PC_ADDER_COORDS.y
+              PC_COORDS.x + PC_COORDS.w + 0.005, PC_ADDER_COORDS.y + PC_ADDER_COORDS.h / 4,
+              PC_ADDER_COORDS.x, PC_ADDER_COORDS.y + PC_ADDER_COORDS.h / 4
             ], PATH_WIDTH, _ => { }, { end: true }
           )
         ]
@@ -361,12 +113,12 @@ class Simulator {
         new Connector(this, [
           IF_ID_REG_COORDS.x + IF_ID_REG_COORDS.w, REG_FILE_COORDS.y + REG_FILE_COORDS.h / 5,
           REG_FILE_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h / 5
-        ]),
+        ], PATH_WIDTH, undefined, { start: false, end: true, endText: "read_1" }),
         /* TODO: Reg read 2*/
         new Connector(this, [
           IF_ID_REG_COORDS.x + IF_ID_REG_COORDS.w, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5,
           REG_FILE_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5
-        ]),
+        ], PATH_WIDTH, undefined, { start: false, end: true, endText: "read_2" }),
         /* Vertical line holding instruction  */
         new Connector(this, [
           (IF_ID_REG_COORDS.rx + REG_FILE_COORDS.x) / 2, DECODE_CONTROL_COORDS.y + DECODE_CONTROL_COORDS.h / 2,
@@ -406,11 +158,11 @@ class Simulator {
       // Decode
       reg_file: new Component(this, REG_FILE_COORDS, "Reg File", [
         /* Reg data 1*/
-        Connector.horizontal(this, REG_FILE_COORDS.rx, ID_EX_REG_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h / 5, 1, undefined),
+        Connector.horizontal(this, REG_FILE_COORDS.rx, ID_EX_REG_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h / 5, PATH_WIDTH, undefined, { start: false, end: true, startText: "reg_1" }),
         /* To cmp 1 */
         Connector.vertical(this, REG_FILE_COORDS.y + REG_FILE_COORDS.h / 5, CMP_COORDS.by, CMP_COORDS.x + CMP_COORDS.w / 3, PATH_WIDTH, undefined, { start: true, end: true }),
         /* Reg data 2*/
-        Connector.horizontal(this, REG_FILE_COORDS.rx, ID_EX_REG_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5),
+        Connector.horizontal(this, REG_FILE_COORDS.rx, ID_EX_REG_COORDS.x, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5, PATH_WIDTH, undefined, {end: true, startText: "reg_2"}),
         /* To cmp 2 */
         Connector.vertical(this, REG_FILE_COORDS.y + REG_FILE_COORDS.h * 2 / 5, CMP_COORDS.by, CMP_COORDS.x + CMP_COORDS.w * 2 / 3, PATH_WIDTH, undefined, { start: true, end: true }),
       ], undefined),

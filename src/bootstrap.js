@@ -1,21 +1,27 @@
 // A dependency graph that contains any wasm must all be imported
 // asynchronously. This `bootstrap.js` file does the single async import, so
 // that no one else needs to worry about it again.
+function import_failure(file_name, e) {
+  console.error(`Error importing '${file_name}': `, e);
+}
 
 import("./state_view.js")
-    .catch(e => console.error("Error importing state_view.js: ", e));
+    .catch(e => import_failure("./state_view.js", e));
 
-import("./svg_render.js")
-    .catch(e => console.error("Error importing svg_render.js: ", e));
+import ("./component.js")
+    .catch(e => import_failure("./component.js", e));
+
+import("./sim_render.js")
+    .catch(e => import_failure("./component.js", e));
 
 import("./sample_programs.js")
-    .catch(e => console.error("Error importing sample_programs.js: ", e));
+    .catch(e => import_failure("./sample_programs.js", e));
 
 import("./index.html")
-    .catch(e => console.error("Error importing `html`:", e));
+    .catch(e => import_failure("./index.html", e));
 
 import("./index.css")
-    .catch(e => console.error("Error importing `css`:", e));
+    .catch(e => import_failure("./index.css", e));
 
 import("./index.js")
-    .catch(e => console.error("Error importing `index.js`:", e));
+    .catch(e => import_failure("./index.js", e));
