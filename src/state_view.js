@@ -54,6 +54,7 @@ const REGNAME_MAP = Object.freeze(
 let REGTABLE = document.getElementById("regtable");
 let MEMTABLE = document.getElementById("memtable");
 let PC = document.getElementById("program-counter");
+let CYCLES = document.getElementById("cycle-counter");
 
 function getU32Hex(i) {
   return `0x${Number(i).toString(16).padStart(8, 0).toUpperCase()}`;
@@ -121,23 +122,25 @@ function renderRegisterView(simState) {
 }
 
 function renderProgramCounter(simState) {
-  if (PC.children.length) PC.removeChild(PC.firstChild);
-  let d_span = document.createElement("span");
   let pc = simState.pc.current_map.PC.U32;
-  console.log(pc);
-  d_span.innerText = `PC: ${getU32Hex(pc)}`;
+  PC.firstElementChild.innerText = `PC: ${getU32Hex(pc)}`;
+}
 
-  PC.append(d_span);
+function renderCycle(simState) {
+  let cycles = simState.cycles;
+  console.log(cycles);
+  CYCLES.firstElementChild.innerText = `CYCLES: ${cycles}`;
 }
 
 function renderProgramSource(simState) { }
 
 
-function updateUiState(sim_state) {
-  renderRegisterView(sim_state);
-  renderMemView(sim_state);
-  renderProgramCounter(sim_state);
-  renderProgramSource(sim_state);
+function updateUiState(simState) {
+  renderRegisterView(simState);
+  renderMemView(simState);
+  renderProgramCounter(simState);
+  renderCycle(simState);
+  renderProgramSource(simState);
 }
 
 export { updateUiState };

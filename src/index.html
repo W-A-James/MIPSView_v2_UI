@@ -1,18 +1,26 @@
+<!DOCTYPE HTML>
 <html>
 
-<head></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="description" content="A free, web based MIPS simulator">
+  <meta name="keywords" content="WebAssembly, MIPS, Computer Architecture, Architecture">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>MIPSView</title>
+</head>
 
 <body>
   <div id="main">
     <div id="model_container">
-      <div id="controls">
+      <nav id="controls">
         <input type="number" id="num_steps" min="1" max="100">
         <button id="step_button">STEP</button>
         <button id="single_step_button">SINGLE STEP</button>
         <button id="step_to_halt_button">STEP TO HALT</button>
-        <button id"load_binary_button">LOAD BINARY</button>
+        <button id="load_binary_button">LOAD BINARY</button>
         <button id="reload_button">RELOAD</button>
-      </div>
+      </nav>
       <!-------- MODEL ------------------>
       <div id="model"></div>
       <!--------------------------------->
@@ -20,7 +28,12 @@
     <div id="state_container">
       <button id="regview-button">REGISTERS/MEMORY</button>
       <!-- Program Counter -->
-      <div id="program-counter"></div>
+      <div id="cycle-counter">
+        <span></span>
+      </div>
+      <div id="program-counter">
+        <span></span>
+      </div>
       <div id="regvals">
         <table id="regtable">
           <tbody>
@@ -42,6 +55,20 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+    <div id="sample_program_container" class="invisible">
+      <nav id="load_binary_controls">
+        <!-- Go back to model button -->
+        <button id="return_to_model">Return to Model View</button>
+        <button id="load_selected_program">Load selected program and return to Model View</button>
+      </nav>
+
+      <div id="load_program_container">
+        <!-- column of programs to select from -->
+        <div id="sample_program_list"></div>
+        <!-- Source code of program -->
+        <div id="source_view"></div>
       </div>
     </div>
   </div>

@@ -35,13 +35,17 @@ function vec_len(v) {
 
 // TODO: Add end and start labels
 class Connector {
-  constructor(owner, path, weight = PATH_WIDTH, onclick = undefined, markers = { start: false, end: true, startText: null, endText: null }) {
+  constructor(owner, path, weight = PATH_WIDTH, onclick = undefined, markers = { start: false, end: true, startText: null, endText: null }, style = { color: "#000" }) {
     this.owner = owner;
     this.path = path;
     this.line_weight = weight;
-    this.colour = "#000";
+    if (style) {
+      style = Object.assign({color: "#000"}, style);
+    }
+    this.colour = style.color;
     this.onclick = onclick ? onclick : () => { };
     if (markers) {
+      markers = Object.assign({ start: false, end: true, startText: null, endText: null }, markers);
       this.markerStart = markers.start ? markers.start : false;
       this.markerEnd = markers.end ? markers.end : false;
       this.markerStartText = markers.startText ? markers.startText : "";
@@ -51,12 +55,12 @@ class Connector {
     connCount++;
   }
 
-  static horizontal(owner, startX, endX, y, weight, onclick, markers = { start: false, end: true, startText: null, endText: null }) {
-    return new Connector(owner, [startX, y, endX, y], weight, onclick, markers);
+  static horizontal(owner, startX, endX, y, weight, onclick, markers = { start: false, end: true, startText: null, endText: null }, style = { color: "#000" }) {
+    return new Connector(owner, [startX, y, endX, y], weight, onclick, markers, style);
   }
 
-  static vertical(owner, startY, endY, x, weight, onclick, markers = { start: false, end: true, startText: null, endText: null }) {
-    return new Connector(owner, [x, startY, x, endY], weight, onclick, markers);
+  static vertical(owner, startY, endY, x, weight, onclick, markers = { start: false, end: true, startText: null, endText: null }, style = { color: "#000" }) {
+    return new Connector(owner, [x, startY, x, endY], weight, onclick, markers, style);
   }
 
   get_end_marker_path(absolute_path, len) {
@@ -110,13 +114,13 @@ class Connector {
       .on("click", this.onclick === undefined ? () => { } : this.onclick);
 
     if (this.markerEnd) {
-      let p = this.get_end_marker_path(new_path, 8);
-      this.owner.drawing.polygon(p);
+      let p = this.get_end_marker_path(new_path, 6);
+      this.owner.drawing.polygon(p).stroke(this.colour).fill(this.colour);
     }
 
     if (this.markerStart) {
-      l.marker("start", 8, 8, add => {
-        add.circle(8)
+      l.marker("start", 6, 6, add => {
+        add.circle(6).stroke(this.colour).fill(this.colour)
       });
     }
 
@@ -165,8 +169,8 @@ class Component {
     this.width = spec.w;
     this.height = spec.h;
     this.name = name;
-    this.fill = "#FFF";
-    this.outline = "#000";
+    this.fill = spec.fill ? spec.fill : "#FFFFFF";
+    this.outline = spec.outline ? spec.outline : "#000";
     this.obj = null;
     this.shape = shape;
     this.connectors = connectors;
