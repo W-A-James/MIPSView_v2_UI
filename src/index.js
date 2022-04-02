@@ -162,7 +162,7 @@ function populateLoadBinaryView() {
     entrySpan.onclick = function(e) {
       let newKey = e.target.id;
       if (currentlySelectedBinary !== newKey) {
-        document.getElementById(currentlySelectedBinary).classList.remove("entry-selected"); 
+        document.getElementById(currentlySelectedBinary).classList.remove("entry-selected");
         e.target.classList.add("entry-selected");
 
         BinaryNameSourceMap[currentlySelectedBinary].classList.add("invisible");

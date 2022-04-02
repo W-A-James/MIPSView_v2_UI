@@ -33,6 +33,39 @@ function vec_len(v) {
   return Math.sqrt((v.x * v.x) + (v.y * v.y))
 }
 
+function get_unit_vec(v) {
+  let len = vec_len(v);
+  return vec_scale(v, 1 / len);
+}
+
+function vec_dot_prod(u, v) {
+  return u.x * v.x + u.y * v.y;
+}
+
+function vec_get_unit_vec_offset_by_45(v) {
+  throw "Unimplemented";
+  // Check if original vector is vertical
+  if (v.y > Number.EPSILON) {
+    let unit = get_unit_vec(v);
+    let ys = [];
+    let sqr_det = Math.sqrt(32 * unit.y * unit.y - 32 * unit.y * unit.y - 16 * unit.y * unit.y + 8 * unit.x * unit.x - 4 * unit.x * unit.x * unit.x * unit.x);
+    let denom = 2 * (4 * unit.y * unit.y + unit.x * unit.x);
+    // positive
+    ys.push((4 * Math.sqrt(2) * unit.y + sqr_det) / denom);
+    // negative
+    ys.push((4 * Math.sqrt(2) * unit.y - sqr_det) / denom);
+
+    let x1 = ((Math.sqrt(2) / 2) - ys[0] * unit.y) / unit.x;
+    let x2 = ((Math.sqrt(2) / 2) - ys[1] * unit.y) / unit.x;
+
+    return [{ x: x1, y: y[0] }, { x: x2, y: y[1] }];
+  }
+  else {
+    let unit = get_unit_vec(v);
+    return get_unit_vec({ x: unit.y, y: unit.y })
+  }
+}
+
 // TODO: Add end and start labels
 class Connector {
   constructor(owner, path, weight = PATH_WIDTH, onclick = undefined, markers = { start: false, end: true, startText: null, endText: null }, style = { color: "#000" }) {
@@ -40,7 +73,7 @@ class Connector {
     this.path = path;
     this.line_weight = weight;
     if (style) {
-      style = Object.assign({color: "#000"}, style);
+      style = Object.assign({ color: "#000" }, style);
     }
     this.colour = style.color;
     this.onclick = onclick ? onclick : () => { };
@@ -82,6 +115,9 @@ class Connector {
     };
 
     return [p1.x, p1.y, p2.x, p2.y, p0.x, p0.y];
+  }
+
+  get_size_marker_path(absolute_path, size, pos) {
   }
 
   draw() {

@@ -34,6 +34,7 @@ const CMP_SPEC = makeBox(0.40, 0.3, REG_WIDTH, 0.05);
 const DECODE_CONTROL_SPEC = Object.assign(makeBox(0.35, 0.12, REG_WIDTH, REG_WIDTH * 3), { outline: "#00F" });
 
 const ALU_SPEC = makeBox(0.59, 0.4, 0.05, 0.16);
+const MULDIV_SPEC = makeBox(0.59, 0.26, 0.05, 0.12);
 const ALU_CONTROL_SPEC = Object.assign(makeBox(0.5875, 0.62, 0.03, 0.08), { outline: "#00F" });
 const REG_DEST_MUX_SPEC = makeBox(0.54, 0.69, 0.03, 0.1);
 const ALU_OP_2_MUX_SPEC = makeBox(0.53, 0.5, 0.03, 0.07);
@@ -285,6 +286,7 @@ class Simulator {
       ], undefined),
 
       // Execute
+      muldiv: new Component(this, MULDIV_SPEC, "MULDIV", [], undefined, SHAPE.BOX),
       alu: new Component(this, ALU_SPEC, "ALU", [
         Connector.horizontal(this, ALU_SPEC.rx, EX_MEM_REG_SPEC.x, ALU_SPEC.cy)
       ], undefined, SHAPE.ARITH),
