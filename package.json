@@ -5,10 +5,11 @@
     "main": "index.js",
     "scripts": {
         "build": "webpack --config webpack.config.js",
-        "start": "webpack serve --open"
+        "start": "webpack serve --open",
+        "clean": "rm ../public/*"
     },
     "author": "Warren James <wajames@princeton.edu>",
-    "license": "(MIT OR Apache-2.0)",
+    "license": "MIT",
     "dependencies": {
         "@svgdotjs/svg.js": "^3.1.2",
         "mips_sim": "file:../sim/pkg"

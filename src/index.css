@@ -209,8 +209,10 @@ span.code-line{
 
 
 .tooltip {
-  position: relative;
-  display: inline-block;
+  position: absolute;
+  display: block;
+  width: fit-content;
+  background-color: red;
 }
 
 .tooltip .tooltiptext {

@@ -15,6 +15,34 @@ const ROOT3OVER2 = Math.sqrt(3) / 2;
 let shapeCount = 0;
 let connCount = 0;
 
+class Vector {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+
+  scale(s) {
+    return new Vector(this.x/s, this.y/s);
+  }
+
+  perpendicular() {
+    return new Vector(this.y, -this.x);
+  }
+
+  len() {
+    return Math.sqrt((this.x*this.x) + (this.y*this.y));
+  }
+
+  getUnit() {
+    let scale = 1/this.len();
+    return this.scale(scale);
+  }
+
+  dot(other) {
+    return this.x*other.x + this.y*other.y;
+  }
+}
+
 function vec_scale(v, s) {
   return {
     x: v.x * s,
@@ -195,6 +223,11 @@ const SHAPE = {
 const LAMBDA = 0.3;
 const PHI = 0.333333;
 // TODO: Update constructor to include tooltip 
+
+function showToolTip() {
+  // select 
+}
+
 class Component {
   constructor(owner, spec, name, connectors, onclick = undefined,
     shape = SHAPE.BOX, classList = "", tooltip = { has: true, f: () => { } }) {
@@ -219,11 +252,17 @@ class Component {
 
     let tooltipID = `shape${shapeCount}_tooltip`;
 
-    this.tooltipEl.classList.add("tooltip");
+    this.tooltipEl.classList.add("tooltip", "invisible");
     this.tooltipEl.id = tooltipID;
     document.getElementById(this.owner.target_element.substr(1)).append(this.tooltipEl);
+    this.onclick = () => this.showToolTip();
 
     shapeCount++;
+  }
+
+  showToolTip() {
+    this.tooltipEl.classList.remove("invisible");
+    this.tooltipEl.innerText = "aaaaaa";
   }
 
   convertRelativeToPixels(relativeX, relativeY) {
@@ -317,6 +356,11 @@ class Component {
       .x(center.x)
       .font("anchor", "middle");
 
+    //let top_bar = 
+    if (this.tooltipEl) {
+      this.tooltipEl.style.top = `${loc.y}px`;
+      this.tooltipEl.style.left = `${loc.x}px`;
+    }
     let bbox = this.text.node.getBoundingClientRect();
     let h = (bbox.height);
     this.text = this.text
