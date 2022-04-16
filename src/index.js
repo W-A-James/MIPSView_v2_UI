@@ -56,7 +56,6 @@ function getDOMHandles() {
 }
 
 function init_ui_event_handlers() {
-  console.log("initializing event handlers");
 
   // Advance simulator by one cycle
   SINGLE_STEP_BUTTON.onclick = function() {
@@ -87,9 +86,7 @@ function init_ui_event_handlers() {
   // Read value from input and advance simulator by that many cycles
   STEP_BUTTON.onclick = function() {
     let v = NUM_STEPS_INPUT.value;
-    console.log(v);
     v = Number.parseInt(v);
-    console.log(v);
 
     mips_sim.step(v);
     update();
@@ -99,7 +96,6 @@ function init_ui_event_handlers() {
   STEP_TO_HALT_BUTTON.onclick = function() {
     if (programLoaded) {
       mips_sim.step_to_halt();
-      console.log(mips_sim.get_state());
       update();
     }
   };
@@ -128,6 +124,27 @@ function init_ui_event_handlers() {
     toggleLoadBinaryView();
     simulator_diag.draw();
   }
+
+  LOAD_PROGRAM_BUTTON.onclick = () => {
+    let selectedBinary;
+    for (const b of sample_programs.PROGRAMS) {
+      if (b.name == currentlySelectedBinary) {
+        selectedBinary = b;
+        break;
+      }
+    }
+
+    if (selectedBinary) {
+      load_binary(selectedBinary);
+      alert(`Loaded '${selectedBinary.name}'`);
+      toggleLoadBinaryView();
+      update();
+    }
+    else {
+      alert(`Failed to load binary`);
+    }
+     
+  };
 
   // Reinitialize the simulator
   RELOAD_BUTTON.onclick = (_) => {
@@ -206,7 +223,6 @@ function start() {
 
   init_ui_event_handlers();
   populateLoadBinaryView();
-  console.log(BinaryNameSourceMap);
 
   let defaultSampleName = sample_programs.PROGRAMS[0].name;
   let defaultSampleSource = BinaryNameSourceMap[sample_programs.PROGRAMS[0].name];

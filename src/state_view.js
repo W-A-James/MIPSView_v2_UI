@@ -83,8 +83,6 @@ function renderMemView(simState) {
 
     tbody.append(row);
   });
-  console.log(mem);
-
 }
 
 function renderRegisterView(simState) {
@@ -128,7 +126,6 @@ function renderProgramCounter(simState) {
 
 function renderCycle(simState) {
   let cycles = simState.cycles;
-  console.log(cycles);
   CYCLES.firstElementChild.innerText = `CYCLES: ${cycles}`;
 }
 

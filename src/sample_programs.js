@@ -1,8 +1,8 @@
 const TEXT_SECTION_START = Uint32Array.from([0x400000])[0];
 const PROGRAMS = [];
-const FIB = Object.freeze({
+const FIB = ({
   name: "fib",
-  text: Uint32Array.from(
+  text:
     [
       537591817,
       537657345,
@@ -41,15 +41,15 @@ const FIB = Object.freeze({
       3735928559,
       0
     ]
-  ),
-  data: Uint32Array.from(
+  ,
+  data:
     [
       0,
       0,
       0,
       0,
     ]
-  ),
+  ,
   entry: TEXT_SECTION_START,
   src: `
 .text
@@ -93,16 +93,23 @@ fib_loop:
 done:
     nop
 .word 0XDEADBEEF 
-  ` 
+  `
 });
 
-const HELLO = {
-  name : "Hello",
-  text: Uint32Array.from([]),
-  data: Uint32Array.from([]),
-  src: "add $t0, $t1, $t2"
-}
-PROGRAMS.push(FIB, HELLO);
+const RUNNING_SUM = (
+  { "entry": 4194312, "text": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 604505064, 8225, 8921121, 554237951, 486604797, 0, 3735928559, 0, 0, 0], "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0], "name": "running_sum", "src": ".text\n.global __start\nnop\nnop\n\n__start:\n  addiu $t0, $0, 1000\n  addu  $a0, $0, $0\n\nsum_loop:\n  addu  $a0, $a0, $t0\n  sub   $t0, $t0, 1\n  bgt   $t0, $0, sum_loop\n\ndone:\n  .word 0xDEADBEEF\n\n.data\n.word 0\n" }
+);
+
+const GCD = (
+  { "entry": 4194356, "text": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 277151754, 0, 10749994, 337641476, 0, 10758178, 268500985, 0, 8724514, 268500982, 0, 65011720, 0, 604241998, 604307519, 599654396, 2948530176, 0, 0, 0, 0, 0, 202375168, 0, 2411659264, 0, 599588868, 3735928559], "data": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0], "name": "gcd", "src": ".text\n.globl __start\n\n.globl gcd\ngcd:\n  # a0 is a\n  # a1 is b\n  # while a != b\n  #   if a \u003e b\n  #     a = a - b \n  #   else\n  #     b = b - a\n  # return a\n  gcd_precheck:\n    beq $a0, $a1, gcd_done\n    bgt $a0, $a1, gcd_a_less_b\n\n  gcd_b_less_a:\n    sub $a1, $a1, $a0\n    b gcd_precheck\n\n  gcd_a_less_b:\n    sub $a0, $a0, $a1\n    b gcd_precheck\n\n\n  gcd_done:\n    jr $ra\n\n.text\n__start:\n  li  $a0, 78\n  li  $a1, 63\n  sub $sp, $sp, 4\n  sw  $ra, ($sp)\n  nop \n  nop\n  nop\n  nop\n  nop\n  jal gcd\n  lw  $ra, ($sp)\n  add $sp, $sp, 4\n  .word 0xDEADBEEF\n\n.data\n\n" }
+);
+
+PROGRAMS.push(FIB, RUNNING_SUM, GCD);
+
+PROGRAMS.forEach(e => {
+  e.text = Uint32Array.from(e.text);
+  e.data = Uint32Array.from(e.data);
+});
 
 export {
   FIB,

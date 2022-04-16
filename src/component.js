@@ -22,7 +22,7 @@ class Vector {
   }
 
   scale(s) {
-    return new Vector(this.x/s, this.y/s);
+    return new Vector(this.x / s, this.y / s);
   }
 
   perpendicular() {
@@ -30,16 +30,16 @@ class Vector {
   }
 
   len() {
-    return Math.sqrt((this.x*this.x) + (this.y*this.y));
+    return Math.sqrt((this.x * this.x) + (this.y * this.y));
   }
 
   getUnit() {
-    let scale = 1/this.len();
+    let scale = 1 / this.len();
     return this.scale(scale);
   }
 
   dot(other) {
-    return this.x*other.x + this.y*other.y;
+    return this.x * other.x + this.y * other.y;
   }
 }
 
@@ -70,33 +70,28 @@ function vec_dot_prod(u, v) {
   return u.x * v.x + u.y * v.y;
 }
 
-function vec_get_unit_vec_offset_by_45(v) {
-  throw "Unimplemented";
+
+function vec_rotate(u, theta, origin = { x: 0, y: 0 }) {
+  let xLessOrig = u.x - origin.x;
+  let yLessOrig = u.y - origin.y;
+  let cTheta = Math.cos(theta);
+  let sTheta = Math.sin(theta);
+  let shiftedX = xLessOrig * cTheta + yLessOrig * -sTheta;
+  let shiftedY = xLessOrig * sTheta + yLessOrig * cTheta;
+
+  return { x: shiftedX + origin.x, y: shiftedY + origin.y };
+}
+function vec_get_unit_vec_offset_by_45(v, origin = { x: 0, y: 0 }) {
   // Check if original vector is vertical
-  if (v.y > Number.EPSILON) {
-    let unit = get_unit_vec(v);
-    let ys = [];
-    let sqr_det = Math.sqrt(32 * unit.y * unit.y - 32 * unit.y * unit.y - 16 * unit.y * unit.y + 8 * unit.x * unit.x - 4 * unit.x * unit.x * unit.x * unit.x);
-    let denom = 2 * (4 * unit.y * unit.y + unit.x * unit.x);
-    // positive
-    ys.push((4 * Math.sqrt(2) * unit.y + sqr_det) / denom);
-    // negative
-    ys.push((4 * Math.sqrt(2) * unit.y - sqr_det) / denom);
+  let unit = get_unit_vec(v);
+  let rotUnit = vec_rotate(unit, Math.PI / 4.0, origin);
 
-    let x1 = ((Math.sqrt(2) / 2) - ys[0] * unit.y) / unit.x;
-    let x2 = ((Math.sqrt(2) / 2) - ys[1] * unit.y) / unit.x;
-
-    return [{ x: x1, y: y[0] }, { x: x2, y: y[1] }];
-  }
-  else {
-    let unit = get_unit_vec(v);
-    return get_unit_vec({ x: unit.y, y: unit.y })
-  }
+  return vec_scale(rotUnit, vec_len(v));
 }
 
 // TODO: Add end and start labels
 class Connector {
-  constructor(owner, path, weight = PATH_WIDTH, onclick = undefined, markers = { start: false, end: true, startText: null, endText: null }, style = { color: "#000" }) {
+  constructor(owner, path, weight = PATH_WIDTH, markers = { start: false, end: true, startText: null, endText: null, busWidth: 1 }, style = { color: "#000" }) {
     this.owner = owner;
     this.path = path;
     this.line_weight = weight;
@@ -104,24 +99,26 @@ class Connector {
       style = Object.assign({ color: "#000" }, style);
     }
     this.colour = style.color;
-    this.onclick = onclick ? onclick : () => { };
     if (markers) {
-      markers = Object.assign({ start: false, end: true, startText: null, endText: null }, markers);
+      markers = Object.assign({ start: false, end: true, startText: null, endText: null, busWidth: 1 }, markers);
       this.markerStart = markers.start ? markers.start : false;
       this.markerEnd = markers.end ? markers.end : false;
       this.markerStartText = markers.startText ? markers.startText : "";
       this.markerEndText = markers.endText ? markers.endText : "";
+      if (markers.busWidth > 1) {
+        this.busWidth = markers.busWidth;
+      }
     }
     this.count = connCount;
     connCount++;
   }
 
-  static horizontal(owner, startX, endX, y, weight, onclick, markers = { start: false, end: true, startText: null, endText: null }, style = { color: "#000" }) {
-    return new Connector(owner, [startX, y, endX, y], weight, onclick, markers, style);
+  static horizontal(owner, startX, endX, y, weight, markers = { start: false, end: true, startText: null, endText: null }, style = { color: "#000" }) {
+    return new Connector(owner, [startX, y, endX, y], weight, markers, style);
   }
 
-  static vertical(owner, startY, endY, x, weight, onclick, markers = { start: false, end: true, startText: null, endText: null }, style = { color: "#000" }) {
-    return new Connector(owner, [x, startY, x, endY], weight, onclick, markers, style);
+  static vertical(owner, startY, endY, x, weight, markers = { start: false, end: true, startText: null, endText: null }, style = { color: "#000" }) {
+    return new Connector(owner, [x, startY, x, endY], weight, markers, style);
   }
 
   get_end_marker_path(absolute_path, len) {
@@ -143,9 +140,6 @@ class Connector {
     };
 
     return [p1.x, p1.y, p2.x, p2.y, p0.x, p0.y];
-  }
-
-  get_size_marker_path(absolute_path, size, pos) {
   }
 
   draw() {
@@ -175,7 +169,6 @@ class Connector {
       )
       .fill('none')
       .attr({ "id": `conn_${this.count}` })
-      .on("click", this.onclick === undefined ? () => { } : this.onclick);
 
     if (this.markerEnd) {
       let p = this.get_end_marker_path(new_path, 6);
@@ -200,15 +193,40 @@ class Connector {
     }
 
     if (this.markerEndText) {
-      let endText = this.owner.drawing
-        .text(this.markerEndText)
-        .x(new_path[new_path.length - 2])
-        .font("anchor", "left")
-        .addClass("component-label");
+      let x_diff = Math.abs(new_path[new_path.length - 4] - new_path[new_path.length - 2]);
+      if (x_diff > 0.1) {
+        // Horizontal
+        let endText = this.owner.drawing
+          .text(this.markerEndText)
+          .x(new_path[new_path.length - 2])
+          .font("anchor", "left")
+          .addClass("component-label");
 
-      let bbox = endText.node.getBoundingClientRect();
-      endText = endText
-        .y(new_path[new_path.length - 1] - bbox.height / 2);
+        let bbox = endText.node.getBoundingClientRect();
+        endText = endText
+          .y(new_path[new_path.length - 1] - bbox.height / 2);
+      } else {
+        // Vertical
+        let endText = this.owner.drawing
+          .text(this.markerEndText)
+          .x(new_path[new_path.length - 2])
+          .font("anchor", "middle")
+          .addClass("component-label");
+
+        let bbox = endText.node.getBoundingClientRect();
+        endText = endText
+          .y(new_path[new_path.length - 1] - bbox.height);
+      }
+    }
+
+    if (this.busWidth) {
+      let l = new_path.length;
+      // Get 45 degree cross and draw text with busWidth
+      let baseVec = { x: new_path[l - 2] - new_path[l - 4], y: new_path[l - 1] - new_path[l - 3] };
+      let orig = { x: (new_path[l - 2] + new_path[l - 4]) / 2, y: (new_path[l - 1] + new_path[l - 3]) / 2 };
+      let unit = get_unit_vec(baseVec);
+      let rotUnit = vec_rotate(unit, Math.PI / 4, orig);
+      // TODO: Get point below, att rotUnit to get point above
     }
     // TODO: Add Labels
   }
@@ -217,20 +235,19 @@ class Connector {
 const SHAPE = {
   CIRCLE: "CIRCLE",
   BOX: "BOX",
-  ARITH: "ARITH"
+  ARITH: "ARITH",
+  AND: "AND"
 };
 
 const LAMBDA = 0.3;
 const PHI = 0.333333;
 // TODO: Update constructor to include tooltip 
 
-function showToolTip() {
-  // select 
-}
-
+// Onclick always shows/hides the tooltip, what should be parametrized as a function
+// is the content of the tooltip and how it is generated
 class Component {
-  constructor(owner, spec, name, connectors, onclick = undefined,
-    shape = SHAPE.BOX, classList = "", tooltip = { has: true, f: () => { } }) {
+  constructor(owner, spec, name, connectors,
+    shape = SHAPE.BOX, classList = "", tooltip = { has: false, description: "", updateState: () => { } }) {
 
     this.owner = owner;
     this.x = spec.x;
@@ -243,26 +260,95 @@ class Component {
     this.obj = null;
     this.shape = shape;
     this.connectors = connectors;
-    this.onclick = onclick;
     this.classList = classList;
     this.count = shapeCount;
     this.hasTooltip = tooltip.has;
-    this.tooltipDrawFunc = tooltip.f;
-    this.tooltipEl = document.createElement("div");
+    this.tooltipUpdate = tooltip.updateState;
 
-    let tooltipID = `shape${shapeCount}_tooltip`;
+    if (tooltip.has) {
+      // Create main tooltip div
+      this.tooltipEl = document.createElement("div");
 
-    this.tooltipEl.classList.add("tooltip", "invisible");
-    this.tooltipEl.id = tooltipID;
-    document.getElementById(this.owner.target_element.substr(1)).append(this.tooltipEl);
-    this.onclick = () => this.showToolTip();
+      // Create nav
+      let tooltipNav = document.createElement("nav");
+      tooltipNav.className = "tooltip_nav";
+
+      // Create description/state tabs
+      let tooltipNavShowState = document.createElement("button");
+      tooltipNavShowState.innerText = "State";
+      tooltipNavShowState.className = "tooltip_nav_button";
+
+      let tooltipNavShowDesc = document.createElement("button");
+      tooltipNavShowDesc.innerText = "Desc.";
+      tooltipNavShowDesc.className = "tooltip_nav_button";
+
+      let tooltipNavClose = document.createElement("button");
+      tooltipNavClose.innerText = "X";
+      tooltipNavClose.className = "tooltip_nav_button";
+      tooltipNavClose.style.backgroundColor = "red";
+
+
+      let tooltipDisplay = document.createElement("div");
+      tooltipDisplay.className = "tooltip_display";
+
+      // Create state div
+      let stateDiv = document.createElement("div");
+      stateDiv.classList.add("tooltip_state");
+      // Create description div
+      let descrDiv = document.createElement("div");
+      descrDiv.classList.add("tooltip_descr", "invisible");
+      descrDiv.innerHTML = tooltip.description ? tooltip.description : "";
+
+
+      this.tooltipEl.append(tooltipNav, tooltipDisplay);
+      tooltipNav.append(tooltipNavShowState, tooltipNavShowDesc, tooltipNavClose);
+      tooltipDisplay.append(stateDiv, descrDiv);
+
+      // TODO: Highlight currently selected view
+      tooltipNavShowState.onclick = () => {
+        this.tooltipEl.getElementsByClassName("tooltip_state")[0].classList.remove("invisible");
+        this.tooltipEl.getElementsByClassName("tooltip_descr")[0].classList.add("invisible");
+        this.updateToolTip();
+
+      };
+      tooltipNavShowDesc.onclick = () => {
+        this.tooltipEl.getElementsByClassName("tooltip_state")[0].classList.add("invisible");
+        this.tooltipEl.getElementsByClassName("tooltip_descr")[0].classList.remove("invisible");
+        this.updateToolTip();
+      };
+
+      tooltipNavClose.onclick = () => {
+        this.tooltipEl.classList.toggle("invisible");
+      };
+
+
+      let tooltipID = `shape${shapeCount}_tooltip`;
+
+      this.tooltipEl.classList.add("tooltip", "invisible", "tooltip_outer");
+      this.tooltipEl.id = tooltipID;
+      document.getElementById(this.owner.target_element.substr(1)).append(this.tooltipEl);
+      this.onclick = () => this.toggleTooltip();
+    }
 
     shapeCount++;
   }
 
-  showToolTip() {
-    this.tooltipEl.classList.remove("invisible");
-    this.tooltipEl.innerText = "aaaaaa";
+  toggleTooltip() {
+    this.tooltipEl.classList.toggle("invisible");
+    this.updateToolTip();
+  }
+
+  updateToolTip() {
+    if (this.hasTooltip) {
+      // Delete tooltip state content
+      let content = this.tooltipUpdate();
+
+      if (content) {
+        let state = this.tooltipEl.getElementsByClassName("tooltip_state")[0];
+        state.innerHTML = "";
+        state.append(content);
+      }
+    }
   }
 
   convertRelativeToPixels(relativeX, relativeY) {
@@ -299,10 +385,38 @@ class Component {
     ];
   }
 
+  get_and_path(x, y, w, h, dir) {
+    let r;
+    let c;
+    let s;
+    let path;
+    switch (dir) {
+      case "left":
+        r = h / 2;
+        path = `m${r},${0} h${w - r} v-${h} h-${w - r} a${r},${r} 0 0,0 0,${h} z`;
+        break;
+      case "right":
+        r = h / 2;
+        c = { x: x + w - r, y: y + r };
+        s = { x: x, y: y };
+        break;
+      default:
+        console.error("Invalid and path direction");
+    }
+
+    this.obj = this.owner.drawing.path(path)
+      .attr({
+        "fill-opacity": 0.0,
+        "stroke-opacity": 1.0,
+        "stroke": "#000",
+      })
+      .x(x)
+      .y(y);
+  }
+
   draw() {
     let loc = this.convertRelativeToPixels(this.x, this.y);
     let size = this.convertRelativeToPixels(this.width, this.height);
-    // TODO: Check Shape here
     switch (this.shape) {
       case SHAPE.ARITH:
         let pts = this.get_arith_pts(loc.x, loc.y, size.x, size.y, LAMBDA, PHI);
@@ -315,7 +429,6 @@ class Component {
           )
           .fill(this.fill)
           .stroke(this.outline)
-          .on('click', this.onclick === undefined ? () => { } : this.onclick);
         break;
       case SHAPE.CIRCLE:
         this.obj = this.owner.drawing.ellipse(size.x, size.y)
@@ -327,7 +440,9 @@ class Component {
           .y(loc.y)
           .fill(this.fill)
           .stroke(this.outline)
-          .on('click', this.onclick === undefined ? () => { } : this.onclick);
+        break;
+      case SHAPE.AND:
+        this.get_and_path(loc.x, loc.y, size.x, size.y, "left");
         break;
       default:
         this.obj = this.owner.drawing.rect(size.x, size.y)
@@ -339,10 +454,10 @@ class Component {
           .y(loc.y)
           .fill(this.fill)
           .stroke(this.outline)
-          .on('click', this.onclick === undefined ? () => { } : this.onclick);
     }
 
     this.obj = this.obj.attr({ "id": `shape_${this.count}` });
+    if (this.onclick) this.obj.click(this.onclick);
     this.classList.split(" ").forEach(c => this.obj.addClass(c));
     // Calculate center and draw text at center
     let center = {
@@ -354,7 +469,10 @@ class Component {
     this.text = this.owner.drawing
       .text(this.name)
       .x(center.x)
-      .font("anchor", "middle");
+      .font("anchor", "middle")
+      .font("weight", "bold")
+      .font("size", 12)
+      .font("family", "sans-serif")
 
     //let top_bar = 
     if (this.tooltipEl) {
