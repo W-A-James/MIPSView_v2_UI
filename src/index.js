@@ -8,6 +8,7 @@ let programLoaded = false;
 let showRegView = true;
 let lastBinary = null;
 let steps;
+let fps;
 
 let SINGLE_STEP_BUTTON;
 let STEP_BUTTON;
@@ -34,6 +35,56 @@ const MODEL_SELECTOR = "#model";
 const MAX_STEPS = 100;
 const MIN_STEPS = 1;
 
+class FPS {
+  constructor() {
+    this.fps = document.getElementById("fps");
+    this.times = [];
+    this.start = null;
+    this.done = false;
+  }
+
+  tick() {
+    if (!this.done)
+      this.start = performance.now()
+  }
+
+  tock() {
+    if (!this.done) {
+      let delta = performance.now() - this.start;
+      this.times.push(delta);
+      if (this.times.length > 100) {
+        this.times.shift();
+        let xhr = new XMLHttpRequest();
+        xhr.open("POST", "http://localhost:8088");
+        xhr.setRequestHeader("content-type", "text/plain");
+        xhr.send(JSON.stringify({ times_ms: this.times }));
+        this.times = [];
+      }
+
+      let min = Infinity;
+      let max = -Infinity;
+      let sum = 0;
+      this.times.forEach(t => {
+        min = Math.min(min, t);
+        max = Math.max(max, t);
+        sum += t;
+      });
+
+      let mean = sum / this.times.length;
+      this.fps.textContent = `
+    Update Times:
+latest = ${Math.round(delta)}ms
+avg of last ${this.times.length} = ${Math.round(mean)}
+min of last ${this.times.length} = ${Math.round(min)}
+max of last ${this.times.length} = ${Math.round(max)}
+`.trim();
+    }
+
+  }
+
+
+}
+
 
 function getDOMHandles() {
   SINGLE_STEP_BUTTON = document.getElementById("single_step_button");
@@ -52,7 +103,9 @@ function getDOMHandles() {
   LOAD_PROGRAM_BUTTON = document.getElementById("load_selected_program");
   SOURCE_VIEW_CONTAINER = document.getElementById("source_view");
   SAMPLE_PROGRAM_LIST = document.getElementById("sample_program_list");
+  document.getElementById("fps").classList.add("invisible");
 
+  //fps = new FPS();
 }
 
 function init_ui_event_handlers() {
@@ -143,7 +196,7 @@ function init_ui_event_handlers() {
     else {
       alert(`Failed to load binary`);
     }
-     
+
   };
 
   // Reinitialize the simulator
@@ -231,11 +284,13 @@ function start() {
 }
 
 function update() {
+  //fps.tick();
   let sim_state = mips_sim.get_state();
 
   simulator_diag.update(sim_state);
   State.updateUiState(sim_state);
   simulator_diag.draw();
+  //fps.tock();
 }
 
 
